@@ -4,6 +4,7 @@ import { map, shareReplay, scan, startWith, tap } from 'rxjs/operators';
 import { OptionItem, SelectionState } from '../models/interfaces';
 
 const STORAGE_KEY = 'interactive_box_state';
+const OPTIONS_STORAGE_KEY = 'interactive_box_options';
 const TOTAL_BOXES = 10;
 
 type StateReducer = (state: SelectionState) => SelectionState;
@@ -36,18 +37,14 @@ export class SelectionService {
 
   // Mock data for options
   /** Dummy payload array defining all available option choices within the application. */
-  public readonly availableOptions: OptionItem[] = Array.from({ length: 15 }).map((_, i) => ({
-    id: `opt-${i + 1}`,
-    name: `Option ${String.fromCharCode(65 + i)}`,
-    value: Math.floor(Math.random() * 50) + 10,
-    imageUrl: `https://picsum.photos/seed/${i + 1}/80/80`,
-  }));
+  public readonly availableOptions: OptionItem[];
 
   /**
    * Constructs the reactive reducer pipeline, wiring action `Subject`s into localized map reducers,
    * merging them down into a single stream, and storing the emitted snapshot in `localStorage` via a side effect.
    */
   constructor() {
+    this.availableOptions = this.loadOrGenerateOptions();
     const initialState = this.loadInitialState();
 
     const boxReducer$: Observable<StateReducer> = this.boxSelected$.pipe(
@@ -137,5 +134,31 @@ export class SelectionService {
       }
     } catch (e) {}
     return defaultState;
+  }
+
+  /**
+   * Loads options from localStorage if they exist, otherwise generates new ones and saves them.
+   * This stabilizes the random point values and images between page reloads.
+   */
+  private loadOrGenerateOptions(): OptionItem[] {
+    try {
+      const storedOptions = localStorage.getItem(OPTIONS_STORAGE_KEY);
+      if (storedOptions) {
+        return JSON.parse(storedOptions);
+      }
+    } catch (e) {}
+
+    const generatedOptions = Array.from({ length: 15 }).map((_, i) => ({
+      id: `opt-${i + 1}`,
+      name: `Option ${String.fromCharCode(65 + i)}`,
+      value: Math.floor(Math.random() * 50) + 10,
+      imageUrl: `https://picsum.photos/seed/${i + 1}/80/80`,
+    }));
+
+    try {
+      localStorage.setItem(OPTIONS_STORAGE_KEY, JSON.stringify(generatedOptions));
+    } catch (e) {}
+
+    return generatedOptions;
   }
 }
